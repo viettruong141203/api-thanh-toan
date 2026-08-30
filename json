@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hiển thị JSON - Trực tiếp từ Google Sheets</title>
+    
+    <!-- Nhúng thư viện PapaParse -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <style>
+        /* Giao diện Code Viewer nền tối */
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            background-color: #1e1e1e; 
+            color: #d4d4d4; 
+            padding: 20px; 
+            margin: 0;
+        }
+        
+        #loading { 
+            color: #569cd6; 
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        /* Khung chứa JSON */
+        pre {
+            background-color: #252526;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #404040;
+            overflow-x: auto;
+            white-space: pre-wrap; /* Tự động xuống dòng nếu quá dài */
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading">Đang tải cấu trúc JSON...</div>
+    <pre id="json-output"></pre>
+
+    <script>
+        const sheetId = '1pKyvtyL9_aYt98nGbgYadu0YQgD7N9EJI7ZkMOg1xLo';
+        const sheetName = 'Thanh toán';
+        
+        const jsonOutput = document.getElementById('json-output');
+        const loadingIndicator = document.getElementById('loading');
+
+        let previousDataString = "";
+
+        function fetchJsonData() {
+            const cacheBuster = new Date().getTime();
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_t=${cacheBuster}`;
+
+            fetch(csvUrl)
+                .then(response => response.text())
+                .then(csvText => {
+                    // Tránh render lại màn hình nếu dữ liệu Google Sheet chưa có gì mới
+                    if (csvText === previousDataString) {
+                        return; 
+                    }
+                    previousDataString = csvText;
+
+                    Papa.parse(csvText, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            // Lọc bỏ các dòng trống hoàn toàn dựa vào cột Mã giao dịch
+                            const cleanData = results.data.filter(row => row['Mã giao dịch']);
+                            
+                            loadingIndicator.style.display = 'none';
+                            
+                            // Chuyển mảng Object thành chuỗi JSON với định dạng lùi lề 2 khoảng trắng
+                            jsonOutput.textContent = JSON.stringify(cleanData, null, 2);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Lỗi lấy dữ liệu:', error);
+                    loadingIndicator.innerText = 'Mất kết nối. Đang thử lại...';
+                    loadingIndicator.style.display = 'block';
+                });
+        }
+
+        // Khởi chạy lần đầu
+        fetchJsonData();
+
+        // Lặp lại mỗi 2 giây
+        setInterval(fetchJsonData, 2000);
+    </script>
+
+</body>
+</html>
+
