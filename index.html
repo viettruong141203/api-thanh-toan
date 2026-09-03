@@ -3,95 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hiển thị JSON - Trực tiếp từ Google Sheets</title>
-    
-    <!-- Nhúng thư viện PapaParse -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    
+    <title>Mã QR Thanh Toán</title>
     <style>
-        /* Giao diện Code Viewer nền tối */
-        body { 
-            font-family: 'Courier New', Courier, monospace; 
-            background-color: #1e1e1e; 
-            color: #d4d4d4; 
-            padding: 20px; 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
             margin: 0;
         }
-        
-        #loading { 
-            color: #569cd6; 
-            font-size: 14px;
-            margin-bottom: 10px;
+        .card {
+            background: #fff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
         }
-
-        /* Khung chứa JSON */
-        pre {
-            background-color: #252526;
+        .loading {
+            color: #666;
+            font-size: 16px;
+        }
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+            display: none;
+        }
+        .qr-container {
+            display: none;
+        }
+        .qr-image {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .bank-info {
+            text-align: left;
+            background: #f8f9fa;
             padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #404040;
-            overflow-x: auto;
-            white-space: pre-wrap; /* Tự động xuống dòng nếu quá dài */
-            word-wrap: break-word;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .bank-info h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        .bank-info p {
+            margin: 5px 0;
+            color: #34495e;
             font-size: 14px;
-            line-height: 1.5;
+        }
+        .bank-info span {
+            font-weight: bold;
+            color: #2980b9;
         }
     </style>
 </head>
 <body>
 
-    <div id="loading">Đang tải cấu trúc JSON...</div>
-    <pre id="json-output"></pre>
+    <div class="card">
+        <div id="loading" class="loading">⏳ Đang tải thông tin thanh toán...</div>
+        <div id="error" class="error"></div>
+        
+        <div id="qr-container" class="qr-container">
+            <!-- Sử dụng API VietQR để render mã QR chuẩn -->
+            <img id="qr-image" class="qr-image" src="" alt="Mã QR Thanh Toán">
+            
+            <div class="bank-info">
+                <h3 id="acc-owner"></h3>
+                <p>Ngân hàng: <span id="bank-name"></span></p>
+                <p>Số tài khoản: <span id="acc-number"></span></p>
+                <p>Trạng thái: <span id="status" style="color: #27ae60;"></span></p>
+            </div>
+        </div>
+    </div>
 
     <script>
-        const sheetId = '1pKyvtyL9_aYt98nGbgYadu0YQgD7N9EJI7ZkMOg1xLo';
-        const sheetName = 'Thanh toán';
-        
-        const jsonOutput = document.getElementById('json-output');
-        const loadingIndicator = document.getElementById('loading');
+        // 1. Lấy ID từ tham số URL trên GitHub (Ví dụ: https://tencuaban.github.io/repo/?id=BK926295)
+        const urlParams = new URLSearchParams(window.location.search);
+        const transactionId = urlParams.get('id') || 'BK926295'; // Lấy ID từ URL, mặc định nếu không có
 
-        let previousDataString = "";
+        const webhookUrl = "https://script.google.com/macros/s/AKfycbzgeZU6ik9YDR8_dmP8cqsjlWOVyW-lX9J_mMGVONdSZnzhr_tj7UoRlKJTMz-TQYSYfg/exec";
 
-        function fetchJsonData() {
-            const cacheBuster = new Date().getTime();
-            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&_t=${cacheBuster}`;
-
-            fetch(csvUrl)
-                .then(response => response.text())
-                .then(csvText => {
-                    // Tránh render lại màn hình nếu dữ liệu Google Sheet chưa có gì mới
-                    if (csvText === previousDataString) {
-                        return; 
-                    }
-                    previousDataString = csvText;
-
-                    Papa.parse(csvText, {
-                        header: true,
-                        skipEmptyLines: true,
-                        complete: function(results) {
-                            // Lọc bỏ các dòng trống hoàn toàn dựa vào cột Mã giao dịch
-                            const cleanData = results.data.filter(row => row['Mã giao dịch']);
-                            
-                            loadingIndicator.style.display = 'none';
-                            
-                            // Chuyển mảng Object thành chuỗi JSON với định dạng lùi lề 2 khoảng trắng
-                            jsonOutput.textContent = JSON.stringify(cleanData, null, 2);
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.error('Lỗi lấy dữ liệu:', error);
-                    loadingIndicator.innerText = 'Mất kết nối. Đang thử lại...';
-                    loadingIndicator.style.display = 'block';
+        async function fetchQRCode() {
+            try {
+                // 2. Gửi request POST đến Webhook Google Script
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8', 
+                        // Lưu ý: Dùng text/plain để tránh lỗi CORS Preflight của Google Apps Script
+                    },
+                    body: JSON.stringify({
+                        sheet: "Ngân hàng",
+                        action: "check",
+                        id: transactionId
+                    })
                 });
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const data = result.data;
+                    
+                    // 3. Tạo link ảnh VietQR thật chuẩn và đẹp (dùng template compact2)
+                    // Cấu trúc: https://img.vietqr.io/image/{bin}-{accNumber}-compact2.png?accountName={accOwner}
+                    const qrUrl = `https://img.vietqr.io/image/${data.bin}-${data.accNumber}-compact2.png?accountName=${encodeURIComponent(data.accOwner)}`;
+
+                    // 4. Hiển thị dữ liệu lên giao diện
+                    document.getElementById('qr-image').src = qrUrl;
+                    document.getElementById('acc-owner').innerText = data.accOwner;
+                    document.getElementById('bank-name').innerText = data.bankName;
+                    document.getElementById('acc-number').innerText = data.accNumber;
+                    document.getElementById('status').innerText = data.status;
+
+                    // Đổi trạng thái hiển thị
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('qr-container').style.display = 'block';
+                } else {
+                    showError("❌ Không tìm thấy thông tin mã thanh toán này!");
+                }
+            } catch (error) {
+                console.error("Lỗi:", error);
+                showError("❌ Lỗi kết nối đến máy chủ Google Sheet.");
+            }
         }
 
-        // Khởi chạy lần đầu
-        fetchJsonData();
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            const errorEl = document.getElementById('error');
+            errorEl.style.display = 'block';
+            errorEl.innerText = message;
+        }
 
-        // Lặp lại mỗi 2 giây
-        setInterval(fetchJsonData, 2000);
+        // Chạy hàm khi load trang
+        fetchQRCode();
     </script>
-
 </body>
 </html>
