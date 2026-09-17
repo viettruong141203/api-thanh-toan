@@ -133,30 +133,6 @@
             font-weight: 500;
         }
 
-        /* Bank Brand */
-        .bank-brand {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        .bank-logo {
-            max-width: 160px;
-            max-height: 48px;
-            object-fit: contain;
-            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
-            display: none;
-        }
-
-        .bank-name-text {
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            color: #ffffff;
-        }
-
         /* Frame Mã QR */
         .qr-container {
             width: 100%;
@@ -195,7 +171,7 @@
             font-weight: 500;
         }
 
-        /* Danh Sách Thông Tin */
+        /* Danh Sách Thông Tin (Ngân hàng, Số tài khoản, Chủ tài khoản) */
         .info-list {
             width: 100%;
             display: flex;
@@ -464,13 +440,7 @@
                     <div class="tx-time" id="tx-time">--:-- --/--/----</div>
                 </div>
 
-                <!-- Bank Brand -->
-                <div class="bank-brand">
-                    <img id="bank-logo" class="bank-logo" src="" alt="Bank Logo" crossorigin="anonymous">
-                    <div class="bank-name-text" id="bank-name">---</div>
-                </div>
-                
-                <!-- QR Wrapper -->
+                <!-- Frame Mã QR -->
                 <div class="qr-container">
                     <div class="qr-wrapper">
                         <img id="qr-image" class="qr-image" src="" alt="Mã QR" crossorigin="anonymous">
@@ -478,14 +448,14 @@
                     <div class="qr-hint">Quét mã để chuyển khoản nhanh</div>
                 </div>
 
-                <!-- Info List -->
+                <!-- Info List (Ngân hàng, Số tài khoản, Chủ tài khoản) -->
                 <div class="info-list">
                     <div class="info-item">
                         <div class="info-text">
-                            <span class="info-label">Chủ tài khoản</span>
-                            <span class="info-value owner" id="acc-owner">---</span>
+                            <span class="info-label">Ngân hàng</span>
+                            <span class="info-value" id="bank-name">---</span>
                         </div>
-                        <button class="btn-copy" onclick="copyText('acc-owner')">
+                        <button class="btn-copy" onclick="copyText('bank-name')">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
                         </button>
                     </div>
@@ -502,10 +472,10 @@
 
                     <div class="info-item">
                         <div class="info-text">
-                            <span class="info-label">Mã giao dịch (ID)</span>
-                            <span class="info-value mono" id="tx-id" style="color: #94a3b8; font-size: 13px;">---</span>
+                            <span class="info-label">Chủ tài khoản</span>
+                            <span class="info-value owner" id="acc-owner">---</span>
                         </div>
-                        <button class="btn-copy" onclick="copyText('tx-id')">
+                        <button class="btn-copy" onclick="copyText('acc-owner')">
                             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
                         </button>
                     </div>
@@ -587,15 +557,8 @@
             return url; 
         }
 
-        function setFavicon(url) {
-            let link = document.querySelector("link[rel~='icon']");
-            if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
-            link.type = 'image/png'; link.href = url;
-        }
-
         async function fetchQRCode() {
             try {
-                // Đã cập nhật đúng JSON payload gửi đi
                 const response = await fetch(webhookUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -611,20 +574,17 @@
                 if (result.status === "success" && result.data) {
                     const data = result.data;
 
-                    // Áp dữ liệu từ JSON mới (Cot_A -> Cot_G)
-                    const idStr = data.Cot_A || result.id || transactionId;
-                    const timeStr = data.Cot_B || result.time || "";
                     const bankName = data.Cot_C || "Ngân hàng";
                     const bin = data.Cot_D;
                     const accNumber = data.Cot_E;
                     const accOwner = data.Cot_F;
                     const statusText = data.Cot_G || "Hoạt động";
+                    const timeStr = data.Cot_B || result.time || "";
 
                     document.getElementById('page-title').innerText = bankName + " - Thanh toán";
                     document.getElementById('bank-name').innerText = bankName;
                     document.getElementById('acc-number').innerText = accNumber;
                     document.getElementById('acc-owner').innerText = accOwner;
-                    document.getElementById('tx-id').innerText = idStr;
                     document.getElementById('tx-time').innerText = timeStr;
                     document.getElementById('tx-status').innerText = statusText;
                     
@@ -634,17 +594,6 @@
                     const qrImg = document.getElementById('qr-image');
                     qrImg.onload = () => { qrImg.style.display = 'block'; };
                     qrImg.src = qrSafeUrl;
-
-                    // Tạo Logo Ngân hàng tự động qua mã BIN
-                    if (bin) {
-                        const logoUrl = `https://api.vietqr.io/img/${bin}.png`;
-                        const logoSafeUrl = await getSafeBase64(logoUrl);
-                        const logoImg = document.getElementById('bank-logo');
-                        logoImg.onload = () => { logoImg.style.display = 'block'; };
-                        logoImg.onerror = () => { logoImg.style.display = 'none'; };
-                        logoImg.src = logoSafeUrl;
-                        setFavicon(logoSafeUrl);
-                    }
 
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('content-wrapper').style.display = 'block';
@@ -694,7 +643,6 @@
             buttons.style.display = 'none';
             copyIcons.forEach(icon => icon.style.display = 'none');
 
-            // Nền cứng xám đen sang trọng khi chụp
             card.style.background = '#0f172a'; 
             card.style.backdropFilter = 'none';
             card.style.webkitBackdropFilter = 'none';
